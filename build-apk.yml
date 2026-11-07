@@ -49,6 +49,17 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml
           sed -i 's/<application/<application android:usesCleartextTraffic="true"/' $M
           sed -i 's/<activity/<activity android:screenOrientation="sensorLandscape"/' $M
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+          IM=$(command -v magick || command -v convert)
+          SRC=icon.png; [ -f icon.png ] || SRC=icon.jpg
+          R=android/app/src/main/res
+          rm -rf $R/mipmap-anydpi-v26
+          for d in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $d
+            $IM "$SRC" -resize ${2}x${2} $R/mipmap-$1/ic_launcher.png
+            cp $R/mipmap-$1/ic_launcher.png $R/mipmap-$1/ic_launcher_round.png
+            cp $R/mipmap-$1/ic_launcher.png $R/mipmap-$1/ic_launcher_foreground.png
+          done
           cat > android/app/src/main/java/com/cityrace/game/MainActivity.java <<'EOF2'
           package com.cityrace.game;
           import android.os.Bundle;
