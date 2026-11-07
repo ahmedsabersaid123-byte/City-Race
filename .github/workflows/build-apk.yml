@@ -45,4 +45,45 @@ jobs:
           sed -i 's#https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js#three.min.js#' www/index.html
       - name: Add Android and patch
         run: |
-          
+          npx cap add android
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's/<application/<application android:usesCleartextTraffic="true"/' $M
+          sed -i 's/<activity/<activity android:screenOrientation="sensorLandscape"/' $M
+          sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
+          IM=$(command -v magick || command -v convert)
+          SRC=icon.png; [ -f icon.png ] || SRC=icon.jpg
+          R=android/app/src/main/res
+          rm -rf $R/mipmap-anydpi-v26
+          for d in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $d
+            $IM "$SRC" -resize ${2}x${2} $R/mipmap-$1/ic_launcher.png
+            cp $R/mipmap-$1/ic_launcher.png $R/mipmap-$1/ic_launcher_round.png
+            cp $R/mipmap-$1/ic_launcher.png $R/mipmap-$1/ic_launcher_foreground.png
+          done
+          cat > android/app/src/main/java/com/cityrace/game/MainActivity.java <<'EOF2'
+          package com.cityrace.game;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.WindowManager;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override public void onCreate(Bundle b) {
+              super.onCreate(b);
+              getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+            @Override public void onWindowFocusChanged(boolean f) {
+              super.onWindowFocusChanged(f);
+              if (f) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+            }
+          }
+          EOF2
+          npx cap sync android
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: city-race-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
