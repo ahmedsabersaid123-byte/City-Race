@@ -214,4 +214,34 @@ jobs:
 
                   private void sendAll(String s, WebSocket except) {
                       for (WebSocket w : info.keySet()) {
-                          if (w != except && w.isOpen()) { try { w.send(s
+                          if (w != except && w.isOpen()) { try { w.send(s); } catch (Exception e) { } }
+                      }
+                  }
+
+                  private void lobby() {
+                      try {
+                          JSONArray arr = new JSONArray();
+                          for (JSONObject p : info.values()) arr.put(p);
+                          for (Map.Entry<WebSocket, JSONObject> en : info.entrySet()) {
+                              JSONObject m = new JSONObject();
+                              m.put("t", "lobby");
+                              m.put("you", en.getValue().getInt("id"));
+                              m.put("host", host);
+                              m.put("players", arr);
+                              if (en.getKey().isOpen()) en.getKey().send(m.toString());
+                          }
+                      } catch (Exception e) { }
+                  }
+              }
+          }
+          EOF2
+          npx cap sync android
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: city-race-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
